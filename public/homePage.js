@@ -1,82 +1,101 @@
 'use strict'
 const logout = new LogoutButton();
-logout.action = exit => ApiConnector.logout(response => {
-    if (response.success) {
-        location.reload();
-        return;
-    }
-});
+logout.action = function() {
+    ApiConnector.logout(function(response){
+        if(response.success){
+            location.reload();
+        }
+    });
+}
 
-ApiConnector.current(current => {
-    if (current.success) {
-        ProfileWidget.showProfile(current.data);
-        return;
+ApiConnector.current(function(response){
+    if(response.success){
+        ProfileWidget.showProfile(response.data);
     }
 });
 
 const rates = new RatesBoard();
-function ratesUpdate() {
-    ApiConnector.getStocks(response => {
-        if (response.success) {
+function exchangeRate() {
+    ApiConnector.getStocks(function(response){
+        if(response.success){
             rates.clearTable();
             rates.fillTable(response.data);
-            return;
         }
     });
-} ratesUpdate();
-setInterval(ratesUpdate, 60000);
+}
 
-const pNt = new MoneyManager();
-pNt.addMoneyCallback = credit => ApiConnector.addMoney(credit, response => {
-    if (response.success) {
-        ProfileWidget.showProfile(response.data);
-        return pNt.setMessage(true, 'Успешное пополнение счета на' + credit.currency + credit.amount);;
-    }
-    return pNt.setMessage(false, 'Ошибка: ' + response.error);
-});
+function exchangeRatePerMunute(){
+    setInterval(exchangeRate(), 60000);
+}
+exchangeRatePerMunute();
 
-pNt.conversionMoneyCallback = exchange => ApiConnector.convertMoney(exchange, response => {
-    if (response.success) {
-        ProfileWidget.showProfile(response.data);
-        return pNt.setMessage(true, 'Успешная конвертация суммы ' + exchange.fromCurrency + exchange.fromAmount);
-    }
-    return pNt.setMessage(false, 'Ошибка: ' + response.error);
-});
+const money = new MoneyManager();
+money.addMoneyCallback = function(data) {
+    ApiConnector.addMoney(data, (response) =>{
+        if(response.success){
+            ProfileWidget.showProfile(response.data);
+            money.setMessage(false, `Успешное пополонение баланса`);
+        } else {
+            money.setMessage(true, response.data);
+        }
+    });
+}
 
-pNt.sendMoneyCallback = debit => ApiConnector.transferMoney(debit, response => {
-    if (response.success) {
-        ProfileWidget.showProfile(response.data);
-        return pNt.setMessage(true, 'Успешный перевод ' + debit.currency + debit.amount + ' получателю ' + debit.to);
-    }
-    return pNt.setMessage(false, 'Ошибка: ' + response.error);
-});
+money.conversionMoneyCallback = function(data) {
+    ApiConnector.convertMoney(data, (response) =>{
+            if(response.success){
+                ProfileWidget.showProfile(response.data);
+                money.setMessage(false, `Успешная конвертация`);
+            } else {
+                money.setMessage(true, response.data);
+            }
+    });
+}
+
+money.sendMoneyCallback = function(data) {
+    ApiConnector.transferMoney(data, (response) =>{
+        console.log(response);
+            if(response.success){
+                ProfileWidget.showProfile(response.data);
+                money.setMessage(false, `Успешный перевод`);
+            } else {
+                money.setMessage(true, response.data);
+            }
+    });
+}
 
 const favorite = new FavoritesWidget();
-ApiConnector.getFavorites(response => {
-    if (response.success) {
+ApiConnector.getFavorites(function(response){
+    if(response.success){
+        console.log(response);
         favorite.clearTable();
         favorite.fillTable(response.data);
-        pNt.updateUsersList(response.data);
-        return;
+        money.updateUsersList(response.data);
     }
- });
-
- favorite.addUserCallback = addUser => ApiConnector.addUserToFavorites(addUser, response => {
-    if (response.success) {
-        favorite.clearTable();
-        favorite.fillTable(response.data);
-        pNt.updateUsersList(response.data);
-        return pNt.setMessage(true, 'Добавлен новый пользователь #' + addUser.id + ': ' + addUser.name);
-    }
-    return pNt.setMessage(false, 'Ошибка: ' + response.error);
 });
 
-favorite.removeUserCallback = deletedUser => ApiConnector.removeUserFromFavorites(deletedUser, response => {
-    if (response.success) {
-        favorite.clearTable();
-        favorite.fillTable(response.data);
-        pNt.updateUsersList(response.data);
-        return pNt.setMessage(true, 'Пользователь ' + deletedUser + ' удален');
-    }
-    return pNt.setMessage(false, 'Ошибка: ' + response.error);
-});
+favorite.addUserCallback = function(data) {
+    ApiConnector.addUserToFavorites(data, (response) =>{
+        if (response.success){
+            favorite.clearTable();
+            favorite.fillTable(response.data);
+            money.updateUsersList(response.data);
+            money.setMessage(false, `Успешное добавление`);
+        } else {
+            money.setMessage(true, response.data);
+        }
+    });
+}
+
+favorite.removeUserCallback = function(data) {
+    ApiConnector.removeUserFromFavorites(data, (response) =>{
+        if (response.success){
+            favorite.clearTable();
+            favorite.fillTable(response.data);
+            money.updateUsersList(response.data);
+            favorite.setMessage(false, `Успешное удаление`);
+        } else {
+            favorite.setMessage(true, response.data);
+        }
+    });
+}
